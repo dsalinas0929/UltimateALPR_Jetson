@@ -1,0 +1,163 @@
+Plate JSON: {
+    "car": {
+        "bodyStyle": [
+            {
+                "confidence": 45.98983,
+                "klass": -1,
+                "name": "s*****"
+            },
+            {
+                "confidence": 25.80444,
+                "klass": -1,
+                "name": "m*****"
+            },
+            {
+                "confidence": 25.12477,
+                "klass": -1,
+                "name": "h*****"
+            },
+            {
+                "confidence": 2.659326,
+                "klass": -1,
+                "name": "s*****"
+            },
+            {
+                "confidence": 0.3086638,
+                "klass": -1,
+                "name": "c*****"
+            }
+        ],
+        "color": [
+            {
+                "confidence": 100.0,
+                "klass": -1,
+                "name": "r*****"
+            },
+            {
+                "confidence": 1.344041e-06,
+                "klass": -1,
+                "name": "b*****"
+            },
+            {
+                "confidence": 8.701949e-08,
+                "klass": -1,
+                "name": "b*****"
+            },
+            {
+                "confidence": 5.382095e-08,
+                "klass": -1,
+                "name": "g*****"
+            },
+            {
+                "confidence": 4.929254e-08,
+                "klass": -1,
+                "name": "y*****"
+            }
+        ],
+        "confidence": 100.0,
+        "makeModelYear": [
+            {
+                "confidence": 73.87769,
+                "klass": -1,
+                "make": "suzuki",
+                "model": "a*****",
+                "year": "0-9"
+            },
+            {
+                "confidence": 4.039661,
+                "klass": -1,
+                "make": "toyota",
+                "model": "v*****",
+                "year": "0-9"
+            },
+            {
+                "confidence": 3.736076,
+                "klass": -1,
+                "make": "suzuki",
+                "model": "r*****",
+                "year": "0-9"
+            },
+            {
+                "confidence": 2.450179,
+                "klass": -1,
+                "make": "smart",
+                "model": "f*****",
+                "year": "0-9"
+            },
+            {
+                "confidence": 2.450179,
+                "klass": -1,
+                "make": "daihatsu",
+                "model": "x*****",
+                "year": "0-9"
+            }
+        ],
+        "warpedBox": [
+            299.0625,
+            139.8516,
+            590.1562,
+            139.8516,
+            590.1562,
+            413.8438,
+            299.0625,
+            413.8438
+        ]
+    },
+    "confidences": [
+        90.23438,
+        99.6582,
+        89.84375,
+        89.45312,
+        84.61914,
+        43.28613,
+        90.23438,
+        90.77148,
+        91.11328,
+        91.35742,
+        91.50391
+    ],
+    "country": [
+        {
+            "code": "IND",
+            "confidence": 100.0,
+            "klass": 43,
+            "name": "India"
+        },
+        {
+            "code": "DNK",
+            "confidence": 2.304221e-06,
+            "klass": 33,
+            "name": "Denmark"
+        },
+        {
+            "code": "GBR",
+            "confidence": 2.884072e-07,
+            "klass": 38,
+            "name": "United Kingdom of Great Britain and Northern Ireland"
+        },
+        {
+            "code": "ARE",
+            "confidence": 8.934437e-08,
+            "klass": 4,
+            "name": "United Arab Emirates",
+            "state": "Dubai"
+        },
+        {
+            "code": "AZE",
+            "confidence": 4.457561e-08,
+            "klass": 12,
+            "name": "Azerbaijan"
+        }
+    ],
+    "text": "DK08X683*",
+    "warpedBox": [
+        378.4375,
+        246.2812,
+        488.2812,
+        246.2812,
+        488.2812,
+        287.3594,
+        378.4375,
+        287.3594
+    ]
+}

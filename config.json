@@ -1,0 +1,25 @@
+{
+  "streams": [
+    {
+      "video_path": "rtsp://127.0.0.1:8554/mystream",
+      "webhook_url": "http://167.71.209.226:8080/4673cdef-412f-49cc-a3f0-9aea69302fe0",
+      "roi_polygon": [ [1400,10], [2000,10], [2000,910], [1400,910] ],
+      "static_detail_1": "DriveThru",
+      "static_detail_2": "Entrance",
+      "min_confidence": 80.0,
+      "plate_repetition_cooldown": 20,
+      "plate_analysis_period": 5
+    },
+    {
+      "video_path": "rtsp://paul:P@ssw0rd@10.30.125.240:554/Streaming/Channels/1501",
+      "webhook_url": "http://167.71.209.226:8080/ae95a003-c5fd-416e-bddb-18c58dbc7ad3",
+      "roi_polygon": [ [600,10], [1900,10], [1900,1010], [600,1010] ],
+      "static_detail_1": "DriveThru1",
+      "static_detail_2": "Exit",
+      "min_confidence": 80.0,
+      "plate_repetition_cooldown": 20,
+      "plate_analysis_period": 5
+    }
+  ],
+  "license_token_data": ""
+}
