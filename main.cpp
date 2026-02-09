@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <thread>
 #include <regex>
+#include <cctype>
+#include <exception>
 
 #include "ultimateALPR-SDK-API-PUBLIC.h"
 #include "base64.h"
@@ -21,7 +23,8 @@
 using namespace ultimateAlprSdk;
 using json = nlohmann::json;
 
-struct PlateDetection {
+struct PlateDetection
+{
     bool isValid;
     json plateJson;
     cv::Mat carImg;
@@ -32,28 +35,28 @@ struct PlateDetection {
     std::chrono::steady_clock::time_point lastSent;  // track when webhook was last sent
 };
 
-
 // Convert cv::Mat to Base64 string
-std::string matToBase64(const cv::Mat& img) {
+std::string matToBase64(const cv::Mat &img)
+{
     std::vector<uchar> buf;
     cv::imencode(".jpg", img, buf);
-    auto* enc_msg = reinterpret_cast<const unsigned char*>(buf.data());
+    auto *enc_msg = reinterpret_cast<const unsigned char *>(buf.data());
     std::string encoded = base64_encode(enc_msg, buf.size());
     return encoded;
 }
 
 // Create webhook payload
-json createWebhookPayload(const json& plateJson, 
-                          const cv::Mat& fullCarImg, 
-                          const cv::Mat& plateImg,
-                          const std::string& static1,
-                          const std::string& static2) 
+json createWebhookPayload(const json &plateJson,
+                          const cv::Mat &fullCarImg,
+                          const cv::Mat &plateImg,
+                          const std::string &static1,
+                          const std::string &static2)
 {
     json payload;
 
     // Plate info
     payload["plate_number"] = plateJson.value("text", "N/A");
-    
+
     // // Full confidences array
     // if (plateJson.contains("confidences")) {
     //     payload["confidences"] = plateJson["confidences"];
@@ -62,19 +65,22 @@ json createWebhookPayload(const json& plateJson,
     // Get total confidence value
     float sum = 0.0;
     int count = plateJson["confidences"].size();
-    for (auto& val : plateJson["confidences"]) {
+    for (auto &val : plateJson["confidences"])
+    {
         sum += val.get<float>();
     }
     float average = sum / count;
     payload["confidence"] = average;
 
     // Vehicle info
-    if (plateJson.contains("car")) {
+    if (plateJson.contains("car"))
+    {
         payload["car"] = plateJson["car"];
     }
 
     // Country info
-    if (plateJson.contains("country")) {
+    if (plateJson.contains("country"))
+    {
         payload["country"] = plateJson["country"];
     }
 
@@ -99,18 +105,22 @@ json createWebhookPayload(const json& plateJson,
 }
 
 // send webhook
-bool sendWebhook(const std::string& url, const json& payload) {
-    CURL* curl = curl_easy_init();
-    if (!curl) {
+bool sendWebhook(const std::string &url, const json &payload)
+{
+    CURL *curl = curl_easy_init();
+    if (!curl)
+    {
         std::cerr << "Failed to initialize curl" << std::endl;
         return false;
     }
 
-    std::string jsonStr = payload.dump();  // Convert JSON to string
+    std::string jsonStr = payload.dump(); // Convert JSON to string
 
-    struct curl_slist* headers = nullptr;
+    // Set curl options
+    struct curl_slist *headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
+    // Set URL and payload
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonStr.c_str());
@@ -121,7 +131,8 @@ bool sendWebhook(const std::string& url, const json& payload) {
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
 
-    if (res != CURLE_OK) {
+    if (res != CURLE_OK)
+    {
         std::cerr << "Webhook POST failed: " << curl_easy_strerror(res) << std::endl;
         return false;
     }
@@ -129,56 +140,79 @@ bool sendWebhook(const std::string& url, const json& payload) {
     return true;
 }
 
-bool isValidPlate(const std::string &text) {
-    if (text.empty()) return false;
+// Validate plate text with regex and length
+bool isValidPlate(const std::string &text)
+{
+    // Basic regex: only uppercase letters and digits
+    if (text.empty())
+        return false;
     std::regex pattern("^[A-Z0-9]+$"); // only letters and digits
-    if (!std::regex_match(text, pattern)) return false;
-    if (text.length() < 6 || text.length() > 8) return false; // filter short or too long misreads
+    if (!std::regex_match(text, pattern))
+        return false;
+    if (text.length() < 6 || text.length() > 8)
+        return false; // filter short or too long misreads
     return true;
 };
 
 // process a frame and send webhook for each detected plate
-void sendWebhookWithFrame(const json plate, cv::Mat& carImg, cv::Mat& plateImg, const std::string& webhookUrl, const std::string& static1, const std::string& static2) {
+void sendWebhookWithFrame(const json plate, cv::Mat &carImg, cv::Mat &plateImg, const std::string &webhookUrl, const std::string &static1, const std::string &static2)
+{
     json payload = createWebhookPayload(plate, carImg, plateImg, static1, static2);
     float conf = payload["confidence"];
     std::string timestamp = payload["timestamp"];
 
-    if (!sendWebhook(webhookUrl, payload)) {
+    if (!sendWebhook(webhookUrl, payload))
+    {
         // std::cerr << "Failed to send webhook for plate: " << plate.value("text", "N/A") << std::endl;
-    } else {
-        std::cout << std::endl << std::endl << "   ***** Webhook sent for plate: " << plate.value("text", "N/A") << " conf: " << conf << " from: " << static2 << " timestamp: " << timestamp << std::endl << std::endl << std::endl;
+    }
+    else
+    {
+        std::cout << std::endl
+                  << std::endl
+                  << "   ***** Webhook sent for plate: " << plate.value("text", "N/A") << " conf: " << conf << " from: " << static2 << " timestamp: " << timestamp << std::endl
+                  << std::endl
+                  << std::endl;
     }
 
-// ===== Save payload to file =====
-    try {
+    // ===== Save payload to file =====
+    try
+    {
         std::string plateText = plate.value("text", "N/A");
-        if (plateText.empty()) plateText = "unknown";
+        if (plateText.empty())
+            plateText = "unknown";
 
         // sanitize filename (remove invalid characters)
-        for (auto& ch : plateText) {
+        for (auto &ch : plateText)
+        {
             if (!std::isalnum(ch) && ch != '-' && ch != '_')
                 ch = '_';
         }
 
         std::string filename = plateText + "_" + static2 + ".txt";
         std::ofstream outFile(filename);
-        if (outFile.is_open()) {
-            outFile << payload.dump(4);  // pretty-print JSON with 4-space indentation
+        if (outFile.is_open())
+        {
+            outFile << payload.dump(4); // pretty-print JSON with 4-space indentation
             outFile.close();
             std::cout << "Saved payload to file: " << filename << std::endl;
-        } else {
+        }
+        else
+        {
             std::cerr << "Failed to open file for writing: " << filename << std::endl;
         }
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Error saving payload to file: " << e.what() << std::endl;
     }
-
 }
 
 // --- Stream Processor Class ---
-class StreamProcessor {
+class StreamProcessor
+{
 public:
-    StreamProcessor(const nlohmann::json &cfg, bool gui) : useGui(gui) {
+    StreamProcessor(const nlohmann::json &cfg, bool gui) : useGui(gui)
+    {
         videoPath = cfg.value("video_path", "");
         webhookUrl = cfg.value("webhook_url", "");
         static1 = cfg.value("static_detail_1", "");
@@ -187,12 +221,15 @@ public:
         repetitionCooldown = cfg.value("plate_repetition_cooldown", 20);
         analysisPeriod = cfg.value("plate_analysis_period", 5);
 
-        if (cfg.contains("roi")) {
+        if (cfg.contains("roi"))
+        {
             roi.x = cfg["roi"].value("x", 0);
             roi.y = cfg["roi"].value("y", 0);
             roi.width = cfg["roi"].value("width", 400);
             roi.height = cfg["roi"].value("height", 400);
-        } else {
+        }
+        else
+        {
             roi = cv::Rect(0, 0, 400, 400); // default
         }
 
@@ -208,32 +245,36 @@ public:
         // std::cout << " ROI: x=" << roi.x << " y=" << roi.y << " width=" << roi.width << " height="  << roi.height << std::endl;
     }
 
-    
-
-    void run() {
+    void run()
+    {
         // Open video file
         cv::VideoCapture cap(videoPath, cv::CAP_FFMPEG);
-        if (!cap.isOpened()) return;
+        if (!cap.isOpened())
+            return;
 
         cv::Mat frame;
         cv::Mat roiFrame; // frame cropped to ROI
         cv::Mat grayPrev; // store previous ROI gray frame for motion detection
         int frameCount = 0;
 
-        while (true) {
+        while (true)
+        {
             // Try to (re)connect
-            if (!cap.isOpened()) {
+            if (!cap.isOpened())
+            {
                 std::cout << "Trying to connect to RTSP stream: " << videoPath << std::endl;
                 cap.open(videoPath, cv::CAP_FFMPEG);
 
-                if (!cap.isOpened()) {
+                if (!cap.isOpened())
+                {
                     std::cerr << "Failed to connect. Retrying in 5 seconds... : " << videoPath << std::endl;
                     std::this_thread::sleep_for(std::chrono::seconds(5));
                     continue; // try again
                 }
                 std::cout << "Connected to RTSP stream!" << videoPath << std::endl;
             }
-            if (!cap.read(frame) || frame.empty()) {
+            if (!cap.read(frame) || frame.empty())
+            {
                 std::cerr << "Lost connection to RTSP stream. Reconnecting... : " << videoPath << std::endl;
                 cap.release();
                 std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -243,16 +284,18 @@ public:
             // Validate ROI against frame size
             roi.x = std::max(0, roi.x);
             roi.y = std::max(0, roi.y);
-            roi.width  = std::min(roi.width,  frame.cols - roi.x);
+            roi.width = std::min(roi.width, frame.cols - roi.x);
             roi.height = std::min(roi.height, frame.rows - roi.y);
 
-            if (roi.width <= 0 || roi.height <= 0) {
+            if (roi.width <= 0 || roi.height <= 0)
+            {
                 // std::cerr << "Invalid ROI after clamping!" << std::endl;
                 continue; // skip this frame safely
             }
             roiFrame = frame(roi).clone();
 
-            if (frame.empty()) {
+            if (frame.empty())
+            {
                 // Restart video from beginning
                 cap.set(cv::CAP_PROP_POS_FRAMES, 0);
                 continue;
@@ -265,48 +308,58 @@ public:
             // Motion detection in ROI
             cv::Mat gray, diff;
             cv::cvtColor(frame(roi), gray, cv::COLOR_BGR2GRAY);
-            cv::GaussianBlur(gray, gray, cv::Size(5,5), 0);
+            cv::GaussianBlur(gray, gray, cv::Size(5, 5), 0);
 
             bool motionDetected = true;
-            if (!grayPrev.empty()) {
+            if (!grayPrev.empty())
+            {
                 cv::absdiff(grayPrev, gray, diff);
                 cv::threshold(diff, diff, 25, 255, cv::THRESH_BINARY);
                 int motionPixels = cv::countNonZero(diff);
-                if (motionPixels < 500) { // threshold for minimal motion
+                if (motionPixels < 500)
+                { // threshold for minimal motion
                     motionDetected = false;
                 }
             }
             grayPrev = gray.clone();
 
-            if (motionDetected) {
+            if (motionDetected)
+            {
                 // Run ALPR
                 UltAlprSdkResult result = UltAlprSdkEngine::process(
                     ULTALPR_SDK_IMAGE_TYPE_BGR24,
                     roiFrame.ptr(),
                     roiFrame.cols,
-                    roiFrame.rows
-                );
+                    roiFrame.rows);
 
-                if (result.isOK()) {
+                if (result.isOK())
+                {
                     std::string resJson = result.json();
-                    try {
+                    try
+                    {
                         auto parsed = json::parse(resJson);
 
-                        if (parsed.contains("plates") && parsed["plates"].is_array()) {
-                            for (auto& plate : parsed["plates"]) {
-                                if (!plate.contains("warpedBox") || !plate["warpedBox"].is_array()) continue;
+                        if (parsed.contains("plates") && parsed["plates"].is_array())
+                        {
+                            for (auto &plate : parsed["plates"])
+                            {
+                                if (!plate.contains("warpedBox") || !plate["warpedBox"].is_array())
+                                    continue;
 
                                 std::string plateText = plate.value("text", "N/A");
 
                                 float sum = 0.0;
                                 int count = plate["confidences"].size();
-                                for (auto& val : plate["confidences"]) {
+                                for (auto &val : plate["confidences"])
+                                {
                                     sum += val.get<float>();
                                 }
                                 float totalConfidence = 0.0f;
-                                if (count > 0) totalConfidence = sum / count;
+                                if (count > 0)
+                                    totalConfidence = sum / count;
 
-                                if (totalConfidence < minConfidenceThreshold) {
+                                if (totalConfidence < minConfidenceThreshold)
+                                {
                                     // std::cerr << "*** confidence is too low: " << totalConfidence << " , so continue" <<  std::endl;
                                     continue; // skip low-confidence plates
                                 }
@@ -314,21 +367,22 @@ public:
                                 // std::cout << "Plate JSON: " << plate.dump(4) << std::endl;
 
                                 // *** ADDED: Misrecognition filtering by regex + length ***
-                                
 
-                                if (!isValidPlate(plateText)) {
-                                    std::cout << "Ignored misrecognized plate: " << static2 << "  "  << plateText << std::endl; // *** ADDED ***
-                                    continue; // skip this detection
+                                if (!isValidPlate(plateText))
+                                {
+                                    std::cout << "Ignored misrecognized plate: " << static2 << "  " << plateText << std::endl; // *** ADDED ***
+                                    continue;                                                                                  // skip this detection
                                 }
 
                                 // --- Crop plate image ---
-                                auto& plateBox = plate["warpedBox"];
+                                auto &plateBox = plate["warpedBox"];
                                 float px_min = plateBox[0].get<float>();
                                 float py_min = plateBox[1].get<float>();
                                 float px_max = plateBox[0].get<float>();
                                 float py_max = plateBox[1].get<float>();
 
-                                for (int i = 0; i < 8; i += 2) {
+                                for (int i = 0; i < 8; i += 2)
+                                {
                                     float x = plateBox[i].get<float>();
                                     float y = plateBox[i + 1].get<float>();
                                     px_min = std::min(px_min, x);
@@ -341,18 +395,18 @@ public:
                                     static_cast<int>(std::round(px_min)) + roi.x,
                                     static_cast<int>(std::round(py_min)) + roi.y,
                                     static_cast<int>(std::round(px_max - px_min)),
-                                    static_cast<int>(std::round(py_max - py_min))
-                                );
+                                    static_cast<int>(std::round(py_max - py_min)));
                                 cv::Mat plateCrop = frame(plateRect).clone();
 
                                 // --- Crop car image ---
-                                auto& carBox = plate["car"]["warpedBox"];
+                                auto &carBox = plate["car"]["warpedBox"];
                                 float cx_min = carBox[0].get<float>();
                                 float cy_min = carBox[1].get<float>();
                                 float cx_max = carBox[0].get<float>();
                                 float cy_max = carBox[1].get<float>();
 
-                                for (int i = 0; i < 8; i += 2) {
+                                for (int i = 0; i < 8; i += 2)
+                                {
                                     float x = carBox[i].get<float>();
                                     float y = carBox[i + 1].get<float>();
                                     cx_min = std::min(cx_min, x);
@@ -365,39 +419,43 @@ public:
                                     static_cast<int>(std::round(cx_min)) + roi.x,
                                     static_cast<int>(std::round(cy_min)) + roi.y,
                                     static_cast<int>(std::round(cx_max - cx_min)),
-                                    static_cast<int>(std::round(cy_max - cy_min))
-                                );
+                                    static_cast<int>(std::round(cy_max - cy_min)));
                                 cv::Mat carCrop = frame(carRect).clone();
-                                
+
                                 // --- send webhook ---
-                                if (!plateBuffer.isValid) {
+                                if (!plateBuffer.isValid)
+                                {
                                     plateBuffer = {
                                         true,
                                         plate,
                                         carCrop.clone(),
                                         plateCrop.clone(),
                                         totalConfidence,
-                                        plateBuffer.lastSent,                     // keep lastSent unchanged
+                                        plateBuffer.lastSent, // keep lastSent unchanged
                                         now + std::chrono::seconds(analysisPeriod),
-                                        std::chrono::steady_clock::time_point{}     // lastSent = not set yet
+                                        std::chrono::steady_clock::time_point{} // lastSent = not set yet
                                     };
                                 }
-                                else {
+                                else
+                                {
                                     // update only if this detection has higher confidence
-                                    if (totalConfidence > plateBuffer.confidence) {
+                                    if (totalConfidence > plateBuffer.confidence)
+                                    {
                                         plateBuffer.plateJson = plate;
                                         plateBuffer.carImg = carCrop.clone();
                                         plateBuffer.plateImg = plateCrop.clone();
                                         plateBuffer.confidence = totalConfidence;
-                                        std::cout << "Updating plateBuffer with " << plateText << " " << static2 << " "  << totalConfidence << std::endl;
+                                        std::cout << "Updating plateBuffer with " << plateText << " " << static2 << " " << totalConfidence << std::endl;
                                     }
-                                    else {
-                                        std::cout << "Not updating " << plateText << " "  << static2 << " conf " << totalConfidence << " is less than existing " << plateBuffer.confidence << std::endl;
+                                    else
+                                    {
+                                        std::cout << "Not updating " << plateText << " " << static2 << " conf " << totalConfidence << " is less than existing " << plateBuffer.confidence << std::endl;
                                     }
                                 }
 
                                 // draw rectangles
-                                if (useGui) {
+                                if (useGui)
+                                {
                                     cv::rectangle(frame, plateRect, cv::Scalar(0, 255, 0), 2);
                                     cv::rectangle(frame, carRect, cv::Scalar(255, 0, 0), 2);
                                     int rectX = std::max(plateRect.x, 0);
@@ -405,23 +463,24 @@ public:
 
                                     // draw plate text
                                     cv::putText(frame, plateText, cv::Point(rectX, rectY - 5),
-                                                    cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
+                                                cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
                                 }
-                            
                             }
                         }
-
-                    } catch (std::exception& e) {
+                    }
+                    catch (std::exception &e)
+                    {
                         std::cerr << "JSON parse error: " << e.what() << std::endl;
                     }
                 }
 
                 // Send webhook when timer expires
 
-                if (now >= plateBuffer.sendTime && plateBuffer.isValid) {
+                if (now >= plateBuffer.sendTime && plateBuffer.isValid)
+                {
                     // Check cooldown before sending
-                    if (plateBuffer.lastSent.time_since_epoch().count() == 0 || 
-                        std::chrono::duration_cast<std::chrono::seconds>(now - plateBuffer.lastSent).count() >= repetitionCooldown) 
+                    if (plateBuffer.lastSent.time_since_epoch().count() == 0 ||
+                        std::chrono::duration_cast<std::chrono::seconds>(now - plateBuffer.lastSent).count() >= repetitionCooldown)
                     {
                         sendWebhookWithFrame(
                             plateBuffer.plateJson,
@@ -429,33 +488,34 @@ public:
                             plateBuffer.plateImg,
                             webhookUrl,
                             static1,
-                            static2
-                        );
+                            static2);
                         // std::cout << "Webhook sent for plate: " << plateText << " " << static2 << "confidence: " <<  << std::endl;
 
                         // Update lastSent timestamp
                         plateBuffer.lastSent = now;
-                    
                     }
                     // After sending (or cooldown check), erase
                     plateBuffer.isValid = false;
                 }
             }
-            if (useGui) {
+            if (useGui)
+            {
                 // Draw ROI rectangle for debugging
                 cv::rectangle(frame, roi, cv::Scalar(0, 0, 255), 1);
 
                 // Show video with overlays
                 cv::imshow("RTSP-ALPR", frame);
             }
-            
+
             int key = cv::waitKey(1);
-            if (key == 27) break; // ESC to exit
+            if (key == 27)
+                break; // ESC to exit
         }
         cap.release();
-        if (useGui) {
+        if (useGui)
+        {
             cv::destroyAllWindows();
-        }        
+        }
     }
 
 private:
@@ -472,32 +532,37 @@ private:
     PlateDetection plateBuffer;
 };
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     bool useGui = false;
     std::unordered_map<std::string, std::string> args;
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++)
+    {
         std::string arg = argv[i];
-        if (arg.rfind("--", 0) == 0) {
+        if (arg.rfind("--", 0) == 0)
+        {
             std::string key = arg;
             std::string value = "true"; // default for flags
-            if (i + 1 < argc && std::string(argv[i + 1]).rfind("--", 0) != 0) {
+            if (i + 1 < argc && std::string(argv[i + 1]).rfind("--", 0) != 0)
+            {
                 value = argv[i + 1];
                 i++;
             }
             args[key] = value;
         }
     }
-    if (args.find("--gui") != args.end()) {
+    if (args.find("--gui") != args.end())
+    {
         useGui = true;
-	}
-    std::cout << "Use GUI: " << (useGui ? "true" : "false") << std::endl << std::endl;   
-
-
+    }
+    std::cout << "Use GUI: " << (useGui ? "true" : "false") << std::endl
+              << std::endl;
 
     // Load app config
     json appConfig;
     std::ifstream configFile(std::string(PROJECT_DIR) + "/config.json");
-    if (!configFile.is_open()) {
+    if (!configFile.is_open())
+    {
         std::cerr << "Failed to open config.json" << std::endl;
         return -1;
     }
@@ -506,10 +571,12 @@ int main(int argc, char *argv[]) {
 
     std::string jsonConfig;
     auto licenseToken = appConfig.value("license_token_data", "");
-    
-    if (licenseToken.empty()) {
+
+    if (licenseToken.empty())
+    {
         jsonConfig = R"({
-            "assets_folder": ")" + std::string(PROJECT_DIR) + R"(/ultimateALPR/assets",
+            "assets_folder": ")" +
+                     std::string(PROJECT_DIR) + R"(/ultimateALPR/assets",
             "charset": "LATIN",
             "recogn_rectify_enabled": true,
             "car_noplate_detect_enabled": false,
@@ -534,7 +601,8 @@ int main(int argc, char *argv[]) {
     else
     {
         jsonConfig = R"({
-            "assets_folder": ")" + std::string(PROJECT_DIR) + R"(/ultimateALPR/assets",
+            "assets_folder": ")" +
+                     std::string(PROJECT_DIR) + R"(/ultimateALPR/assets",
             "charset": "LATIN",
             "recogn_rectify_enabled": true,
             "car_noplate_detect_enabled": false,
@@ -554,12 +622,14 @@ int main(int argc, char *argv[]) {
             "klass_vmmr_enabled": true,
             "klass_vbsr_enabled": true,
             "debug_level": "error",
-            "license_token_data": ")" + appConfig.value("license_token_data", "") + R"("
+            "license_token_data": ")" +
+                     appConfig.value("license_token_data", "") + R"("
         })";
     }
 
     UltAlprSdkResult result = UltAlprSdkEngine::init(jsonConfig.c_str());
-    if (!result.isOK()) {
+    if (!result.isOK())
+    {
         std::cerr << "Failed to initialize ALPR engine: " << result.phrase() << std::endl;
         return -1;
     }
@@ -567,24 +637,31 @@ int main(int argc, char *argv[]) {
 
     // Launch one worker per stream
     std::vector<std::thread> workers;
-    try {
-        for (auto &streamCfg : appConfig["streams"]) {
-            workers.emplace_back([streamCfg, useGui]() {
-                StreamProcessor processor(streamCfg, useGui);
-                processor.run();  // inside run(): capture frames + call UltAlprSdkEngine::process(...)
-            });
+    try
+    {
+        for (auto &streamCfg : appConfig["streams"])
+        {
+            workers.emplace_back([streamCfg, useGui]()
+                                 {
+                                     StreamProcessor processor(streamCfg, useGui);
+                                     processor.run(); // inside run(): capture frames + call UltAlprSdkEngine::process(...)
+                                 });
         }
-    } catch (std::exception &e) {
+    }
+    catch (std::exception &e)
+    {
         std::cerr << "Error starting streams: " << e.what() << std::endl;
     }
 
     // Join all workers
-    for (auto &t : workers) {
-        if (t.joinable()) t.join();
+    for (auto &t : workers)
+    {
+        if (t.joinable())
+            t.join();
     }
 
     // Clean up
-    
+
     UltAlprSdkEngine::deInit();
     std::cout << "ALPR engine deinitialized." << std::endl;
 
