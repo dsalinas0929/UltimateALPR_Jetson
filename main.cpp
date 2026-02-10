@@ -519,6 +519,7 @@ public:
     }
 
 private:
+    // Region of interest for license plate detection
     cv::Rect roi;
     std::string videoPath;
     std::string webhookUrl;
@@ -529,6 +530,7 @@ private:
     int analysisPeriod;
     bool useGui = false;
 
+    // Plate detection buffer
     PlateDetection plateBuffer;
 };
 
@@ -536,6 +538,7 @@ int main(int argc, char *argv[])
 {
     bool useGui = false;
     std::unordered_map<std::string, std::string> args;
+    // Simple command-line argument parsing
     for (int i = 1; i < argc; i++)
     {
         std::string arg = argv[i];
@@ -569,6 +572,7 @@ int main(int argc, char *argv[])
     configFile >> appConfig;
     configFile.close();
 
+    // Initialize ALPR engine with config (including license token if provided)
     std::string jsonConfig;
     auto licenseToken = appConfig.value("license_token_data", "");
 
