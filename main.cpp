@@ -521,11 +521,11 @@ public:
 private:
     // Region of interest for license plate detection
     cv::Rect roi;
-    std::string videoPath;
-    std::string webhookUrl;
+    std::string videoPath;  // RTSP URL or video file path
+    std::string webhookUrl; // where to send plate data
     std::string static1;
     std::string static2;
-    float minConfidenceThreshold;
+    float minConfidenceThreshold; // filter out plates below this confidence
     int repetitionCooldown;
     int analysisPeriod;
     bool useGui = false;
@@ -554,6 +554,7 @@ int main(int argc, char *argv[])
             args[key] = value;
         }
     }
+    // Check for --gui flag
     if (args.find("--gui") != args.end())
     {
         useGui = true;
