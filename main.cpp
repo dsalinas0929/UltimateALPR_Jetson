@@ -570,6 +570,7 @@ int main(int argc, char *argv[])
         std::cerr << "Failed to open config.json" << std::endl;
         return -1;
     }
+    // Parse JSON config
     configFile >> appConfig;
     configFile.close();
 
