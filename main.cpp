@@ -578,6 +578,7 @@ int main(int argc, char *argv[])
     std::string jsonConfig;
     auto licenseToken = appConfig.value("license_token_data", "");
 
+    // If license token is not provided, initialize with basic config (without license_token_data field)
     if (licenseToken.empty())
     {
         jsonConfig = R"({
