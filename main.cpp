@@ -634,6 +634,7 @@ int main(int argc, char *argv[])
         })";
     }
 
+    // std::cout << "ALPR Engine Config: " << jsonConfig << std::endl;
     UltAlprSdkResult result = UltAlprSdkEngine::init(jsonConfig.c_str());
     if (!result.isOK())
     {
